@@ -1,12 +1,12 @@
-import WalletConnectProvider from "@walletconnect/web3-provider";
+import WalletConnectProvider from '@walletconnect/web3-provider';
 
-import { chainByID, chainByNetworkId } from "./chain";
+import { chainByID, chainByNetworkId } from './chain';
 
 declare let window: any;
 const isInjected = () => window.ethereum?.chainId;
 
 export const attemptInjectedChainData = () =>
-  isInjected() ? chainByID(window.ethereum?.chainId) : chainByID("0x1");
+  isInjected() ? chainByID(window.ethereum?.chainId) : chainByID('0x1');
 
 const addNetworkProviders = (chainData: any) => {
   const allProviders: any = {};
@@ -15,17 +15,17 @@ const addNetworkProviders = (chainData: any) => {
     return false;
   }
   const providersToAdd = chainData.providers;
-  if (providersToAdd.includes("walletconnect")) {
+  if (providersToAdd.includes('walletconnect')) {
     allProviders.walletconnect = {
       network: chainData.network,
       package: WalletConnectProvider,
       options: {
         rpc: {
-          1: `https://mainnet.infura.io/v3/${process.env.RPC_KEY}`,
-          4: `https://rinkeby.infura.io/v3/${process.env.RPC_KEY}`,
-          42: `https://kovan.infura.io/v3/${process.env.RPC_KEY}`,
-          100: "https://dai.poa.network",
-          137: "https://rpc-mainnet.maticvigil.com",
+          1: `https://mainnet.infura.io/v3/${import.meta.env.RPC_KEY}`,
+          4: `https://rinkeby.infura.io/v3/${import.meta.env.RPC_KEY}`,
+          42: `https://kovan.infura.io/v3/${import.meta.env.RPC_KEY}`,
+          100: 'https://dai.poa.network',
+          137: 'https://rpc-mainnet.maticvigil.com',
         },
       },
     };
