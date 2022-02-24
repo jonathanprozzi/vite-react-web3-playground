@@ -24,8 +24,13 @@ import { truncateAddress } from '../../utils/helpers';
 import ThemeToggle from './ThemeToggle';
 
 const Header = () => {
-  const { address, requestWallet, disconnectDapp, userData } =
-    useInjectedProvider();
+  const {
+    address,
+    requestWallet,
+    disconnectDapp,
+    userData,
+  } = useInjectedProvider();
+
   const handleDisconnect = () => {
     disconnectDapp();
   };
