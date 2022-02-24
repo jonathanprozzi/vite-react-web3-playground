@@ -1,17 +1,21 @@
 import * as React from 'react';
 import { useState, useEffect, useContext, createContext, useRef } from 'react';
-import Web3 from 'web3';
+import { ethers, providers } from 'ethers';
+import { useWeb3React } from '@web3-react/core';
+import { NetworkConnector } from '@web3-react/network-connector';
 import Web3Modal from 'web3modal';
-import { useQuery } from '@apollo/client';
-import { supportedChains } from '../utils/chain';
-import {
-  deriveChainId,
-  deriveSelectedAddress,
-  getProviderOptions,
-} from '../utils/web3modal';
+import { getProviderOptions } from '../utils/web3modal';
 
 export const InjectedProviderContext: any = createContext(null);
-
+// TODO: Change network on env (prod should use Polygon prod - chain id 137)
+export const network = new NetworkConnector({
+  urls: {
+    80001: `https://polygon-mumbai.g.alchemy.com/v2/${
+      import.meta.env.VITE_ALCHEMY_API_KEY
+    }`,
+  },
+  defaultChainId: 80001,
+});
 interface InjectedProviderProps {
   children: any;
 }
@@ -19,9 +23,13 @@ interface InjectedProviderProps {
 export const InjectedProvider: React.FC<InjectedProviderProps> = ({
   children,
 }: InjectedProviderProps) => {
-  const [injectedProvider, setInjectedProvider] = useState<any>(null);
+  const { activate, account, connector, chainId, library } = useWeb3React();
+  const [web3ModalConnection, setWeb3ModalConnection] = useState<any>();
+  const [
+    injectedProvider,
+    setInjectedProvider,
+  ] = useState<providers.Web3Provider | null>(null);
   const [address, setAddress] = useState<any>(null);
-  const [injectedChain, setInjectedChain] = useState<any>(null);
   const [web3Modal, setWeb3Modal] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
 
@@ -29,9 +37,8 @@ export const InjectedProvider: React.FC<InjectedProviderProps> = ({
 
   const connectProvider = async () => {
     const providerOptions = getProviderOptions();
-
-    const defaultModal = new Web3Modal({
-      providerOptions: getProviderOptions(),
+    const modal = new Web3Modal({
+      providerOptions,
       cacheProvider: true,
       theme: 'dark',
     });
@@ -39,72 +46,66 @@ export const InjectedProvider: React.FC<InjectedProviderProps> = ({
     if (!providerOptions) {
       setInjectedProvider(null);
       setAddress(null);
-      setWeb3Modal(defaultModal);
       window.localStorage.removeItem('WEB3_CONNECT_CACHED_PROVIDER');
       return;
     }
 
-    const localWeb3Modal = new Web3Modal({
-      providerOptions,
-      cacheProvider: true,
-      theme: 'dark',
-    });
+    const connection = await modal.connect();
+    const provider = new ethers.providers.Web3Provider(connection);
+    const signer = provider.getSigner();
+    const signerAddress = await signer.getAddress();
 
-    const provider = await localWeb3Modal.connect();
-    provider.selectedAddress = deriveSelectedAddress(provider);
-    const chainId = deriveChainId(provider);
-
-    const chain = {
-      ...supportedChains[chainId],
-      chainId,
-    };
-
-    const web3: any = new Web3(provider);
-    if (web3?.currentProvider?.selectedAddress) {
-      setInjectedProvider(web3);
-      setAddress(web3.currentProvider.selectedAddress);
-      setInjectedChain(chain);
-      setWeb3Modal(localWeb3Modal);
-    }
+    setWeb3Modal(modal);
+    setWeb3ModalConnection(connection);
+    setInjectedProvider(provider);
+    setAddress(signerAddress);
   };
 
   useEffect(() => {
     if (window.localStorage.getItem('WEB3_CONNECT_CACHED_PROVIDER')) {
       connectProvider();
     }
+
+    if (activate) {
+      activate(network);
+    }
   }, []);
 
   useEffect(() => {
-    const handleChainChange = () => {
-      console.log('CHAIN CHANGE');
+    // can change this to view status of nft (if can claim, already claimed, etc.)
+    async function getBlock(provider: providers.AlchemyProvider) {
+      console.log(await provider.getBlockNumber());
+    }
+
+    if (library) {
+      getBlock(library);
+    }
+  }, [chainId, account, library]);
+
+  useEffect(() => {
+    const handleChainChange = (chainId: number) => {
+      console.log(`CHAIN CHANGE: ${chainId}`);
       connectProvider();
     };
-    const accountsChanged = () => {
-      console.log('ACCOUNT CHANGE');
+    const handleAccountsChange = (accounts: string[]) => {
+      console.log(`ACCOUNT CHANGE: ${accounts}`);
       connectProvider();
     };
 
-    const unsub = () => {
-      if (injectedProvider?.currentProvider) {
-        injectedProvider.currentProvider.removeListener(
-          'accountsChanged',
-          accountsChanged,
-        );
-        injectedProvider.currentProvider.removeListener(
-          'chainChanged',
-          handleChainChange,
-        );
-      }
-    };
-
-    if (injectedProvider?.currentProvider && !hasListeners.current) {
-      injectedProvider.currentProvider
-        .on('accountsChanged', accountsChanged)
-        .on('chainChanged', handleChainChange);
+    if (web3ModalConnection && !hasListeners.current) {
+      web3ModalConnection.on('accountsChanged', handleAccountsChange);
+      web3ModalConnection.on('chainChanged', handleChainChange);
       hasListeners.current = true;
     }
-    return () => unsub();
-  }, [injectedProvider]);
+    return () => {
+      if (web3ModalConnection) {
+        web3ModalConnection.removeAllListeners([
+          'accountsChanged',
+          'chainChanged',
+        ]);
+      }
+    };
+  }, [web3ModalConnection]);
 
   const requestWallet = async () => {
     connectProvider();
@@ -122,13 +123,13 @@ export const InjectedProvider: React.FC<InjectedProviderProps> = ({
     setWeb3Modal(defaultModal);
     web3Modal.clearCachedProvider();
   };
+
   return (
     <InjectedProviderContext.Provider
       value={{
         injectedProvider,
         requestWallet,
         disconnectDapp,
-        injectedChain,
         address,
         web3Modal,
         setUserData,
@@ -145,7 +146,6 @@ export const useInjectedProvider = () => {
     injectedProvider,
     requestWallet,
     disconnectDapp,
-    injectedChain,
     address,
     web3Modal,
     setUserData,
@@ -155,7 +155,6 @@ export const useInjectedProvider = () => {
     injectedProvider,
     requestWallet,
     disconnectDapp,
-    injectedChain,
     web3Modal,
     address,
     setUserData,
