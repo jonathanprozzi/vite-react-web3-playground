@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect, useContext, createContext, useRef } from 'react';
-import { ethers, providers } from 'ethers';
+import { ethers, providers, Signer } from 'ethers';
 import { useWeb3React } from '@web3-react/core';
 import { NetworkConnector } from '@web3-react/network-connector';
 import Web3Modal from 'web3modal';
@@ -16,6 +16,7 @@ export const network = new NetworkConnector({
   },
   defaultChainId: 80001,
 });
+
 interface InjectedProviderProps {
   children: any;
 }
@@ -25,10 +26,8 @@ export const InjectedProvider: React.FC<InjectedProviderProps> = ({
 }: InjectedProviderProps) => {
   const { activate, account, connector, chainId, library } = useWeb3React();
   const [web3ModalConnection, setWeb3ModalConnection] = useState<any>();
-  const [
-    injectedProvider,
-    setInjectedProvider,
-  ] = useState<providers.Web3Provider | null>(null);
+  const [provider, setProvider] = useState<providers.Web3Provider | null>(null);
+  const [signer, setSigner] = useState<Signer | null>(null);
   const [address, setAddress] = useState<any>(null);
   const [web3Modal, setWeb3Modal] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
@@ -44,20 +43,22 @@ export const InjectedProvider: React.FC<InjectedProviderProps> = ({
     });
 
     if (!providerOptions) {
-      setInjectedProvider(null);
+      setProvider(null);
+      setSigner(null);
       setAddress(null);
       window.localStorage.removeItem('WEB3_CONNECT_CACHED_PROVIDER');
       return;
     }
 
     const connection = await modal.connect();
-    const provider = new ethers.providers.Web3Provider(connection);
-    const signer = provider.getSigner();
-    const signerAddress = await signer.getAddress();
+    const modalProvider = new ethers.providers.Web3Provider(connection);
+    const activeSigner = modalProvider.getSigner();
+    const signerAddress = await activeSigner.getAddress();
 
     setWeb3Modal(modal);
     setWeb3ModalConnection(connection);
-    setInjectedProvider(provider);
+    setProvider(modalProvider);
+    setSigner(activeSigner);
     setAddress(signerAddress);
   };
 
@@ -118,7 +119,8 @@ export const InjectedProvider: React.FC<InjectedProviderProps> = ({
       theme: 'dark',
     });
 
-    setInjectedProvider(null);
+    setProvider(null);
+    setSigner(null);
     setAddress(null);
     setWeb3Modal(defaultModal);
     web3Modal.clearCachedProvider();
@@ -127,9 +129,10 @@ export const InjectedProvider: React.FC<InjectedProviderProps> = ({
   return (
     <InjectedProviderContext.Provider
       value={{
-        injectedProvider,
+        provider,
         requestWallet,
         disconnectDapp,
+        signer,
         address,
         web3Modal,
         setUserData,
@@ -141,21 +144,34 @@ export const InjectedProvider: React.FC<InjectedProviderProps> = ({
   );
 };
 
-export const useInjectedProvider = () => {
+type InjectedProviderContext = {
+  provider: providers.Web3Provider;
+  requestWallet: () => void;
+  disconnectDapp: () => void;
+  signer: Signer;
+  address: string;
+  web3Modal: any;
+  setUserData: any;
+  userData: any;
+};
+
+export const useInjectedProvider = (): InjectedProviderContext => {
   const {
-    injectedProvider,
+    provider,
     requestWallet,
     disconnectDapp,
+    signer,
     address,
     web3Modal,
     setUserData,
     userData,
   } = useContext(InjectedProviderContext);
   return {
-    injectedProvider,
+    provider,
     requestWallet,
     disconnectDapp,
     web3Modal,
+    signer,
     address,
     setUserData,
     userData,

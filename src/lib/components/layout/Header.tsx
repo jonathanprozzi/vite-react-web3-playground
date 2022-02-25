@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   Box,
   Flex,
@@ -19,6 +20,7 @@ import {
 } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { useInjectedProvider } from '../../contexts/InjectedProviderContexts';
+import { useAdventureBadgeContract } from 'lib/hooks/useContract';
 import { truncateAddress } from '../../utils/helpers';
 
 import ThemeToggle from './ThemeToggle';
@@ -26,10 +28,18 @@ import ThemeToggle from './ThemeToggle';
 const Header = () => {
   const {
     address,
+    provider,
+    signer,
     requestWallet,
     disconnectDapp,
     userData,
   } = useInjectedProvider();
+  const adventureBadgeContract = useAdventureBadgeContract(
+    // FIXME: Replace in env (address where AdventureBadge.sol is deployed)
+    '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+    true,
+  );
+  const [tokenId, setTokenId] = useState<number>(0);
 
   const handleDisconnect = () => {
     disconnectDapp();
@@ -39,6 +49,39 @@ const Header = () => {
     requestWallet();
   };
   const copyAddress = useClipboard(address);
+
+  async function mintBadge(id: number) {
+    try {
+      if (id > 0) {
+        console.log(id);
+        const tx = await adventureBadgeContract?.mint(id, 1, []);
+        console.log(tx);
+        const receipt = await tx?.wait();
+        console.log(receipt);
+      } else {
+        console.log(`${address} is unable to mint`);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  useEffect(() => {
+    async function getSomeData() {
+      const level =
+        (await adventureBadgeContract?.addressToTokenId(address)) || 0;
+      const alreadyMinted = await adventureBadgeContract?.addressAlreadyMinted(
+        address,
+      );
+      setTokenId(level);
+      console.log(`level: ${level}`);
+      console.log(`already minted: ${alreadyMinted}`);
+    }
+    if (provider && signer && adventureBadgeContract) {
+      console.log(adventureBadgeContract);
+      getSomeData();
+    }
+  }, [provider, signer, adventureBadgeContract]);
 
   return (
     <Flex
@@ -93,6 +136,9 @@ const Header = () => {
                   </HStack>
                 </MenuItem>
               </MenuList>
+              {provider && signer ? (
+                <Button onClick={() => mintBadge(tokenId)}>Mint</Button>
+              ) : null}
             </Menu>
           </>
         ) : (
