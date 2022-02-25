@@ -16,7 +16,7 @@ export default {
       util: 'rollup-plugin-node-polyfills/polyfills/util',
       sys: 'util',
       // events: 'rollup-plugin-node-polyfills/polyfills/events',
-      // stream: 'rollup-plugin-node-polyfills/polyfills/stream',
+      stream: 'rollup-plugin-node-polyfills/polyfills/stream',
       path: 'rollup-plugin-node-polyfills/polyfills/path',
       querystring: 'rollup-plugin-node-polyfills/polyfills/qs',
       punycode: 'rollup-plugin-node-polyfills/polyfills/punycode',
@@ -65,6 +65,9 @@ export default {
     },
   },
   build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       plugins: [
         // Enable rollup polyfills plugin
